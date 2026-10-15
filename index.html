@@ -31,20 +31,43 @@ home:[
 [['Incline push-up','3 × 8'],['Backpack row','3 × 10'],['Pike push-up or wall press','3 × 8'],['Dead bug','3 × 10']],
 [['Walk / jog intervals','5 × 2 min'],['Bodyweight squats','3 × 12'],['Step-ups','3 × 10 / leg']]
 ]};
+const trainingBlocks=[
+ {title:'Warm-up & movement prep',items:[['Easy bike, walk or jog','5 min'],['Dynamic mobility and activation','3 min']]},
+ {title:'Main strength',items:[['Squat','4 × 6'],['Romanian deadlift','3 × 8']]},
+ {title:'Accessory strength',items:[['Reverse lunge','3 × 8 / leg'],['Single-leg calf raise','3 × 12'],['Side plank','3 × 30 sec / side']]},
+ {title:'Conditioning finisher',items:[['Bike, row or incline walk','10 min']]},
+ {title:'Cooldown',items:[['Easy walking and stretching','5 min']]}
+];
+const extras={
+ 0:[['Easy cardio warm-up','5 min'],['Hip and ankle mobility','3 min'],['Step-ups','3 × 10 / leg'],['Calf raises','3 × 12'],['Glute bridge','3 × 12'],['Bike or brisk incline walk','10 min'],['Cooldown stretch','5 min']],
+ 1:[['Easy walk and dynamic warm-up','7 min'],['Easy conversational run or run/walk','15 min'],['Steady aerobic effort','10 min'],['Easy walk recovery','8 min'],['Core stability','5 min'],['Cooldown mobility','5 min']],
+ 2:[['Easy cardio warm-up','5 min'],['Shoulder mobility','3 min'],['Incline push-ups','3 × 10'],['Rear delt raises','3 × 12'],['Biceps curls','3 × 10'],['Triceps extensions','3 × 10'],['Easy bike','10 min'],['Cooldown stretch','5 min']],
+ 3:[['Easy cardio warm-up','5 min'],['Dynamic mobility','3 min'],['Step-ups','3 × 10 / leg'],['Reverse lunges','3 × 10'],['Plank','3 × 40 sec'],['Easy bike or walk','10 min'],['Cooldown mobility','5 min']]
+};
+function timePlan(){const m=p().minutes,loc=p().location,focus=p().focus;let core=plan[loc][focus].map(x=>[...x]);let add=extras[focus].map(x=>[...x]);if(loc==='home'||loc==='hotel'){add=add.map(([n,d])=>[n.replace('Bike or brisk incline walk','Brisk walk or step-ups').replace('Easy bike or walk','Easy walk').replace('Easy bike','Easy walk').replace('Biceps curls','Backpack curls').replace('Triceps extensions','Close-grip push-ups').replace('Rear delt raises','Prone Y raises'),d])}
+if(p().energy==='low')return {sections:[{name:'Recovery-focused session',items:[['Easy walk or bike','10–20 min'],['Gentle mobility','5–10 min']]}],planned:20};
+const warm=[['Easy cardio warm-up','5 min'],['Dynamic mobility','3 min']];
+const cool=[['Cooldown and stretching','5 min']];
+let sections=[];
+if(m===20){sections=[{name:'Warm-up',items:[warm[0]]},{name:'Main work',items:core.slice(0,2)},{name:'Cooldown',items:[['Easy recovery','2 min']]}]}
+else if(m===30){sections=[{name:'Warm-up',items:warm},{name:'Main work',items:core.slice(0,3)},{name:'Cooldown',items:[cool[0]]}]}
+else if(m===45){sections=[{name:'Warm-up',items:warm},{name:'Main work',items:core},{name:'Cooldown',items:cool}]}
+else{sections=[{name:'Warm-up',items:warm},{name:'Main work',items:core},{name:'Accessory & conditioning',items:add.slice(2,6)},{name:'Cooldown',items:cool}]}
+return {sections,planned:m}}
 const $=id=>document.getElementById(id);
 const safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const p=()=>state.profiles[state.active];
 const key=()=>state.active+'-'+p().focus+'-'+p().location;
 const draft=()=>state.drafts[key()]||(state.drafts[key()]={checks:[],loads:{},notes:''});
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){console.warn('Storage unavailable',e)}}
-function exercises(){let xs=plan[p().location][p().focus].map(x=>[...x]);if(p().minutes<=25)xs=xs.slice(0,3);if(p().energy==='low')xs=xs.map(([n,s])=>[n,s.replace(/4 ×/g,'2 ×').replace(/3 ×/g,'2 ×')]);return xs}
+function exercises(){return timePlan().sections.flatMap(x=>x.items)}
 function render(){
 const pages=['today','history','together','settings'];$('nav').innerHTML=pages.map(x=>'<button class="'+(state.page===x?'active':'')+'" data-page="'+x+'">'+({today:'Today',history:'History',together:'Together',settings:'Settings'}[x])+'</button>').join('');
 let out='';
 if(state.page==='today'){
 out='<div class="row">'+Object.entries(state.profiles).map(([id,x])=>'<button data-athlete="'+id+'" class="'+(state.active===id?'active':'')+'">'+safe(x.name)+'</button>').join('')+'</div>';
 out+='<div class="card"><div class="row between"><div><small>TODAY\'S SESSION</small><h2>'+safe(focusNames[p().focus])+'</h2></div><span class="pill">'+safe(p().minutes)+' min</span></div><div class="field"><label>Training focus</label><select data-setting="focus">'+focusNames.map((x,i)=>'<option value="'+i+'" '+(p().focus===i?'selected':'')+'>'+safe(x)+'</option>').join('')+'</select></div><div class="row"><div class="field"><label>Location</label><select data-setting="location">'+['gym','hotel','home'].map(x=>'<option '+(p().location===x?'selected':'')+'>'+x+'</option>').join('')+'</select></div><div class="field"><label>Time</label><select data-setting="minutes">'+[20,30,45,60].map(x=>'<option value="'+x+'" '+(p().minutes===x?'selected':'')+'>'+x+' min</option>').join('')+'</select></div><div class="field"><label>Readiness</label><select data-setting="energy">'+['low','normal'].map(x=>'<option '+(p().energy===x?'selected':'')+'>'+x+'</option>').join('')+'</select></div></div><p class="hint">Adjust location, time, or readiness to substitute the session. Start conservatively and stop if anything feels wrong.</p></div>';
-out+='<div class="card"><h2>Workout checklist</h2>'+exercises().map(([name,reps],i)=>'<div class="exercise"><input type="checkbox" data-check="'+i+'" '+(draft().checks.includes(i)?'checked':'')+'><span><b>'+safe(name)+'</b><br><small>'+safe(reps)+'</small></span><input type="text" style="width:85px" placeholder="Load" aria-label="Weight or load" data-load="'+i+'" value="'+safe(draft().loads[i]||'')+'"></div>').join('')+'<div class="field"><label>Workout notes</label><textarea id="notes" placeholder="How did it feel? Anything to change?">'+safe(draft().notes)+'</textarea></div><button class="primary" id="complete">Complete workout</button></div>';
+out+='<div class="card"><h2>Workout checklist</h2><p class="hint">'+safe(p().minutes)+'-minute session · Rest 60–120 seconds between strength sets; longer for heavy compound lifts. Adjust pace as needed.</p>'+exercises().map(([name,reps],i)=>'<div class="exercise"><input type="checkbox" data-check="'+i+'" '+(draft().checks.includes(i)?'checked':'')+'><span><b>'+safe(name)+'</b><br><small>'+safe(reps)+'</small></span><input type="text" style="width:85px" placeholder="Load" aria-label="Weight or load" data-load="'+i+'" value="'+safe(draft().loads[i]||'')+'"></div>').join('')+'<div class="field"><label>Workout notes</label><textarea id="notes" placeholder="How did it feel? Anything to change?">'+safe(draft().notes)+'</textarea></div><button class="primary" id="complete">Complete workout</button></div>';
 out+='<div class="card"><h2>Workout feedback</h2><p class="hint">Your wife can help shape the program with feedback after each session.</p><select id="rating"><option>Just right</option><option>Too easy</option><option>Too hard</option><option>Prefer different exercises</option></select><div class="field"><textarea id="feedback" placeholder="What should we change?"></textarea></div><button id="submit-feedback">Save feedback</button></div>';
 }else if(state.page==='history'){
 out='<div class="card"><h2>Training history</h2><p class="hint">Records are saved on this device only. Export backups in Settings.</p></div>'+(!state.history.length?'<div class="card">No completed workouts yet.</div>':state.history.map(x=>'<div class="card"><small>'+safe(x.date)+' · '+safe(x.athlete)+'</small><h3>'+safe(x.focus)+'</h3><p>'+safe(x.location)+' · '+safe(x.minutes)+' min · '+x.completed+'/'+x.total+' exercises checked</p><p>'+safe(x.notes)+'</p></div>').join(''));
