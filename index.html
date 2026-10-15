@@ -10,8 +10,15 @@ const KEY='chidester-strong-v1';
 const defaults={active:'you',page:'today',profiles:{you:{name:'My Training',goal:'HYROX / fitness',location:'gym',minutes:45,energy:'normal',focus:0},wife:{name:"Partner's Training",goal:'HYROX / fitness',location:'gym',minutes:45,energy:'normal',focus:0}},drafts:{},history:[],feedback:[]};
 let state;
 try{state=JSON.parse(localStorage.getItem(KEY))||JSON.parse(JSON.stringify(defaults))}catch(e){state=JSON.parse(JSON.stringify(defaults))}
-if(!state.profiles)state=JSON.parse(JSON.stringify(defaults));
+if(!state.profiles)state=JSON.parse(JSON.stringify(defaults));state.calendarOverrides||={};state.weekOffset||=0;
 const focusNames=['Strength — Lower','Run / Endurance','Strength — Upper','HYROX Conditioning'];
+const weekPlan={you:[0,1,-1,2,3,4,-1],wife:[0,1,-1,2,4,3,-1]};
+const dayNames=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const dateKey=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+const isoMonday=d=>{let x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x};
+function scheduled(id,date){const day=(date.getDay()+6)%7;const k=id+':'+dateKey(date);return state.calendarOverrides&&Object.prototype.hasOwnProperty.call(state.calendarOverrides,k)?state.calendarOverrides[k]:weekPlan[id][day]}
+function scheduleLabel(x){return x===-1?'Recovery / rest':x===4?'Optional easy aerobic':focusNames[x]||'Recovery / rest'}
+
 const plan={
 gym:[
 [['Squat','4 × 6'],['Romanian deadlift','3 × 8'],['Reverse lunge','3 × 8 / leg'],['Farmer carry','3 × 40 m'],['Plank','3 × 40 sec']],
@@ -62,13 +69,17 @@ const draft=()=>state.drafts[key()]||(state.drafts[key()]={checks:[],loads:{},no
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){console.warn('Storage unavailable',e)}}
 function exercises(){return timePlan().sections.flatMap(x=>x.items)}
 function render(){
-const pages=['today','history','together','settings'];$('nav').innerHTML=pages.map(x=>'<button class="'+(state.page===x?'active':'')+'" data-page="'+x+'">'+({today:'Today',history:'History',together:'Together',settings:'Settings'}[x])+'</button>').join('');
+const pages=['today','calendar','history','together','settings'];$('nav').innerHTML=pages.map(x=>'<button class="'+(state.page===x?'active':'')+'" data-page="'+x+'">'+({today:'Today',calendar:'Calendar',history:'History',together:'Together',settings:'Settings'}[x])+'</button>').join('');
 let out='';
 if(state.page==='today'){
-out='<div class="row">'+Object.entries(state.profiles).map(([id,x])=>'<button data-athlete="'+id+'" class="'+(state.active===id?'active':'')+'">'+safe(x.name)+'</button>').join('')+'</div>';
+const now=new Date(),planned=scheduled(state.active,now);out='<div class="card"><small>TODAY ON YOUR CALENDAR</small><h3>'+safe(scheduleLabel(planned))+'</h3><button id="open-calendar">View weekly calendar</button> '+(planned>=0&&planned<4?'<button id="load-today">Load scheduled workout</button>':'')+'</div>';out+='<div class="row">'+Object.entries(state.profiles).map(([id,x])=>'<button data-athlete="'+id+'" class="'+(state.active===id?'active':'')+'">'+safe(x.name)+'</button>').join('')+'</div>';
 out+='<div class="card"><div class="row between"><div><small>TODAY\'S SESSION</small><h2>'+safe(focusNames[p().focus])+'</h2></div><span class="pill">'+safe(p().minutes)+' min</span></div><div class="field"><label>Training focus</label><select data-setting="focus">'+focusNames.map((x,i)=>'<option value="'+i+'" '+(p().focus===i?'selected':'')+'>'+safe(x)+'</option>').join('')+'</select></div><div class="row"><div class="field"><label>Location</label><select data-setting="location">'+['gym','hotel','home'].map(x=>'<option '+(p().location===x?'selected':'')+'>'+x+'</option>').join('')+'</select></div><div class="field"><label>Time</label><select data-setting="minutes">'+[20,30,45,60].map(x=>'<option value="'+x+'" '+(p().minutes===x?'selected':'')+'>'+x+' min</option>').join('')+'</select></div><div class="field"><label>Readiness</label><select data-setting="energy">'+['low','normal'].map(x=>'<option '+(p().energy===x?'selected':'')+'>'+x+'</option>').join('')+'</select></div></div><p class="hint">Adjust location, time, or readiness to substitute the session. Start conservatively and stop if anything feels wrong.</p></div>';
 out+='<div class="card"><h2>Workout checklist</h2><p class="hint">'+safe(p().minutes)+'-minute session · Rest 60–120 seconds between strength sets; longer for heavy compound lifts. Adjust pace as needed.</p>'+exercises().map(([name,reps],i)=>'<div class="exercise"><input type="checkbox" data-check="'+i+'" '+(draft().checks.includes(i)?'checked':'')+'><span><b>'+safe(name)+'</b><br><small>'+safe(reps)+'</small></span><input type="text" style="width:85px" placeholder="Load" aria-label="Weight or load" data-load="'+i+'" value="'+safe(draft().loads[i]||'')+'"></div>').join('')+'<div class="field"><label>Workout notes</label><textarea id="notes" placeholder="How did it feel? Anything to change?">'+safe(draft().notes)+'</textarea></div><button class="primary" id="complete">Complete workout</button></div>';
 out+='<div class="card"><h2>Workout feedback</h2><p class="hint">Your wife can help shape the program with feedback after each session.</p><select id="rating"><option>Just right</option><option>Too easy</option><option>Too hard</option><option>Prefer different exercises</option></select><div class="field"><textarea id="feedback" placeholder="What should we change?"></textarea></div><button id="submit-feedback">Save feedback</button></div>';
+}else if(state.page==='calendar'){
+const monday=isoMonday(new Date());monday.setDate(monday.getDate()+state.weekOffset*7);
+out='<div class="card"><div class="row between"><h2>Training calendar</h2><div class="row"><button id="prev-week">←</button><button id="this-week">Today</button><button id="next-week">→</button></div></div><p class="hint">Week of '+safe(monday.toLocaleDateString())+'. Select a workout to change the plan for that day. Changes save on this device.</p></div>';
+for(let i=0;i<7;i++){const date=new Date(monday);date.setDate(monday.getDate()+i);const key=dateKey(date);out+='<div class="card"><h3>'+dayNames[i]+' · '+safe(date.toLocaleDateString(undefined,{month:'short',day:'numeric'}))+'</h3>'+Object.entries(state.profiles).map(([id,ath])=>{const value=scheduled(id,date);return '<div class="field"><label>'+safe(ath.name)+'</label><select data-schedule="'+id+':'+key+'">'+[[-1,'Recovery / rest'],[0,focusNames[0]],[1,focusNames[1]],[2,focusNames[2]],[3,focusNames[3]],[4,'Optional easy aerobic']].map(([n,label])=>'<option value="'+n+'" '+(value===n?'selected':'')+'>'+safe(label)+'</option>').join('')+'</select></div>'}).join('')+'</div>'}
 }else if(state.page==='history'){
 out='<div class="card"><h2>Training history</h2><p class="hint">Records are saved on this device only. Export backups in Settings.</p></div>'+(!state.history.length?'<div class="card">No completed workouts yet.</div>':state.history.map(x=>'<div class="card"><small>'+safe(x.date)+' · '+safe(x.athlete)+'</small><h3>'+safe(x.focus)+'</h3><p>'+safe(x.location)+' · '+safe(x.minutes)+' min · '+x.completed+'/'+x.total+' exercises checked</p><p>'+safe(x.notes)+'</p></div>').join(''));
 }else if(state.page==='together'){
@@ -77,6 +88,12 @@ out='<div class="card"><h2>Stronger Together</h2><p>Two independent athletes, on
 out='<div class="card"><h2>Athlete profiles</h2>'+Object.entries(state.profiles).map(([id,x])=>'<div class="field"><label>'+safe(id==='you'?'Your name':'Partner name')+'</label><input data-name="'+id+'" value="'+safe(x.name)+'"></div><div class="field"><label>'+safe(x.name)+' — current goal</label><input style="width:100%" data-goal="'+id+'" value="'+safe(x.goal)+'"></div>').join('')+'<p class="hint">Changing your goal does not erase your training history. Detailed goal-specific programming is a future feature.</p></div><div class="card"><h2>Your data</h2><p class="hint">This version does not sync across devices or connect to Apple Health/Oura. Avoid entering sensitive health information in a shared device.</p><button id="export">Export backup</button> <label class="pill">Import backup <input type="file" id="import" accept=".json,application/json" style="display:none"></label></div>';
 }
 $('app').innerHTML=out;
+if($('open-calendar'))$('open-calendar').onclick=()=>{state.page='calendar';save();render()};
+if($('load-today'))$('load-today').onclick=()=>{p().focus=scheduled(state.active,new Date());save();render()};
+if($('prev-week'))$('prev-week').onclick=()=>{state.weekOffset--;save();render()};
+if($('next-week'))$('next-week').onclick=()=>{state.weekOffset++;save();render()};
+if($('this-week'))$('this-week').onclick=()=>{state.weekOffset=0;save();render()};
+document.querySelectorAll('[data-schedule]').forEach(el=>el.onchange=()=>{state.calendarOverrides[el.dataset.schedule]=Number(el.value);save();render()});
 document.querySelectorAll('[data-page]').forEach(el=>el.onclick=()=>{state.page=el.dataset.page;save();render()});
 document.querySelectorAll('[data-athlete]').forEach(el=>el.onclick=()=>{state.active=el.dataset.athlete;save();render()});
 document.querySelectorAll('[data-setting]').forEach(el=>el.onchange=()=>{p()[el.dataset.setting]=el.dataset.setting==='focus'||el.dataset.setting==='minutes'?Number(el.value):el.value;save();render()});
