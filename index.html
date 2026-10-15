@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#14272b"><title>Chidester Strong</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#eaf3f2;background:#0b1519}*{box-sizing:border-box}body{margin:0}header{background:#14272b;padding:24px max(16px,calc((100vw - 760px)/2));border-bottom:1px solid #345054}h1{margin:3px 0;font-size:27px}small,.muted{color:#9eb5b5}main{max-width:760px;margin:auto;padding:18px 16px 90px}.card{background:#16272d;border:1px solid #345054;border-radius:16px;padding:18px;margin:14px 0}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}button,select,input,textarea{font:inherit;border-radius:10px;border:1px solid #48646a;background:#223940;color:#f2ffff;padding:11px}button{cursor:pointer}button.active,.primary{background:#1f8c78;border-color:#2cb69c;color:white}button:disabled{opacity:.5}input[type=checkbox]{width:21px;height:21px;accent-color:#2cb69c}textarea{width:100%;min-height:85px}input[type=number]{width:90px}.exercise{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #345054}.exercise span{flex:1}nav{position:fixed;bottom:0;left:0;right:0;background:#14272b;display:flex;justify-content:center;padding:9px;gap:8px}nav button{flex:1;max-width:180px;font-size:13px;padding:11px 5px}.pill{background:#244d4b;padding:5px 10px;border-radius:50px;color:#a8eee1;font-size:12px}.field{margin:12px 0}.field label{display:block;margin-bottom:6px}h2{margin:0 0 12px;font-size:21px}h3{margin:8px 0}.hint{font-size:13px;color:#a8bfc0}.stretch{flex:1}a{color:#8fe7d5}
+</style></head><body><header><small>STRONGER TOGETHER · FAMILY TRAINING</small><h1>⚡ Chidester Strong</h1><small>Built to grow with your goals.</small></header><main id="app"><div class="card">Loading workouts…</div></main><nav id="nav"></nav>
+<script>
+(function(){
+'use strict';
+const KEY='chidester-strong-v1';
+const defaults={active:'you',page:'today',profiles:{you:{name:'My Training',goal:'HYROX / fitness',location:'gym',minutes:45,energy:'normal',focus:0},wife:{name:"Partner's Training",goal:'HYROX / fitness',location:'gym',minutes:45,energy:'normal',focus:0}},drafts:{},history:[],feedback:[]};
+let state;
+try{state=JSON.parse(localStorage.getItem(KEY))||JSON.parse(JSON.stringify(defaults))}catch(e){state=JSON.parse(JSON.stringify(defaults))}
+if(!state.profiles)state=JSON.parse(JSON.stringify(defaults));
+const focusNames=['Strength — Lower','Run / Endurance','Strength — Upper','HYROX Conditioning'];
+const plan={
+gym:[
+[['Squat','4 × 6'],['Romanian deadlift','3 × 8'],['Reverse lunge','3 × 8 / leg'],['Farmer carry','3 × 40 m'],['Plank','3 × 40 sec']],
+[['Easy run or run/walk','25–35 min'],['Mobility','5 min']],
+[['Bench press or push-up','3 × 8'],['Lat pulldown','3 × 10'],['Dumbbell shoulder press','3 × 8'],['Cable row','3 × 10'],['Dead bug','3 × 10']],
+[['Easy run','4 × 3 min'],['Row / SkiErg','4 × 250 m'],['Farmer carry','3 × 40 m'],['Wall balls or thrusters','3 × 12']]
+],
+hotel:[
+[['Goblet squat','3 × 10'],['Dumbbell RDL','3 × 10'],['Split squat','3 × 8 / leg'],['Suitcase carry','3 × 30 sec'],['Plank','3 × 30 sec']],
+[['Treadmill easy run or walk','20–30 min'],['Mobility','5 min']],
+[['Dumbbell floor press','3 × 10'],['One-arm dumbbell row','3 × 10'],['Shoulder press','3 × 8'],['Dead bug','3 × 10']],
+[['Treadmill intervals','5 × 2 min'],['Dumbbell thrusters','3 × 10'],['Suitcase carry','3 × 30 sec']]
+],
+home:[
+[['Bodyweight squat','3 × 12'],['Glute bridge','3 × 12'],['Reverse lunge','3 × 8 / leg'],['Plank','3 × 30 sec']],
+[['Walk / run-walk','20–30 min'],['Mobility','5 min']],
+[['Incline push-up','3 × 8'],['Backpack row','3 × 10'],['Pike push-up or wall press','3 × 8'],['Dead bug','3 × 10']],
+[['Walk / jog intervals','5 × 2 min'],['Bodyweight squats','3 × 12'],['Step-ups','3 × 10 / leg']]
+]};
+const $=id=>document.getElementById(id);
+const safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const p=()=>state.profiles[state.active];
+const key=()=>state.active+'-'+p().focus+'-'+p().location;
+const draft=()=>state.drafts[key()]||(state.drafts[key()]={checks:[],loads:{},notes:''});
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){console.warn('Storage unavailable',e)}}
+function exercises(){let xs=plan[p().location][p().focus].map(x=>[...x]);if(p().minutes<=25)xs=xs.slice(0,3);if(p().energy==='low')xs=xs.map(([n,s])=>[n,s.replace(/4 ×/g,'2 ×').replace(/3 ×/g,'2 ×')]);return xs}
+function render(){
+const pages=['today','history','together','settings'];$('nav').innerHTML=pages.map(x=>'<button class="'+(state.page===x?'active':'')+'" data-page="'+x+'">'+({today:'Today',history:'History',together:'Together',settings:'Settings'}[x])+'</button>').join('');
+let out='';
+if(state.page==='today'){
+out='<div class="row">'+Object.entries(state.profiles).map(([id,x])=>'<button data-athlete="'+id+'" class="'+(state.active===id?'active':'')+'">'+safe(x.name)+'</button>').join('')+'</div>';
+out+='<div class="card"><div class="row between"><div><small>TODAY\'S SESSION</small><h2>'+safe(focusNames[p().focus])+'</h2></div><span class="pill">'+safe(p().minutes)+' min</span></div><div class="field"><label>Training focus</label><select data-setting="focus">'+focusNames.map((x,i)=>'<option value="'+i+'" '+(p().focus===i?'selected':'')+'>'+safe(x)+'</option>').join('')+'</select></div><div class="row"><div class="field"><label>Location</label><select data-setting="location">'+['gym','hotel','home'].map(x=>'<option '+(p().location===x?'selected':'')+'>'+x+'</option>').join('')+'</select></div><div class="field"><label>Time</label><select data-setting="minutes">'+[20,30,45,60].map(x=>'<option value="'+x+'" '+(p().minutes===x?'selected':'')+'>'+x+' min</option>').join('')+'</select></div><div class="field"><label>Readiness</label><select data-setting="energy">'+['low','normal'].map(x=>'<option '+(p().energy===x?'selected':'')+'>'+x+'</option>').join('')+'</select></div></div><p class="hint">Adjust location, time, or readiness to substitute the session. Start conservatively and stop if anything feels wrong.</p></div>';
+out+='<div class="card"><h2>Workout checklist</h2>'+exercises().map(([name,reps],i)=>'<div class="exercise"><input type="checkbox" data-check="'+i+'" '+(draft().checks.includes(i)?'checked':'')+'><span><b>'+safe(name)+'</b><br><small>'+safe(reps)+'</small></span><input type="text" style="width:85px" placeholder="Load" aria-label="Weight or load" data-load="'+i+'" value="'+safe(draft().loads[i]||'')+'"></div>').join('')+'<div class="field"><label>Workout notes</label><textarea id="notes" placeholder="How did it feel? Anything to change?">'+safe(draft().notes)+'</textarea></div><button class="primary" id="complete">Complete workout</button></div>';
+out+='<div class="card"><h2>Workout feedback</h2><p class="hint">Your wife can help shape the program with feedback after each session.</p><select id="rating"><option>Just right</option><option>Too easy</option><option>Too hard</option><option>Prefer different exercises</option></select><div class="field"><textarea id="feedback" placeholder="What should we change?"></textarea></div><button id="submit-feedback">Save feedback</button></div>';
+}else if(state.page==='history'){
+out='<div class="card"><h2>Training history</h2><p class="hint">Records are saved on this device only. Export backups in Settings.</p></div>'+(!state.history.length?'<div class="card">No completed workouts yet.</div>':state.history.map(x=>'<div class="card"><small>'+safe(x.date)+' · '+safe(x.athlete)+'</small><h3>'+safe(x.focus)+'</h3><p>'+safe(x.location)+' · '+safe(x.minutes)+' min · '+x.completed+'/'+x.total+' exercises checked</p><p>'+safe(x.notes)+'</p></div>').join(''));
+}else if(state.page==='together'){
+out='<div class="card"><h2>Stronger Together</h2><p>Two independent athletes, one shared commitment. Train together when you can, follow the same focus remotely when you cannot.</p><div class="row">'+Object.entries(state.profiles).map(([id,x])=>'<div class="card stretch"><small>'+safe(x.name)+'</small><h3>'+safe(x.goal)+'</h3><p>'+state.history.filter(h=>h.id===id).length+' workouts logged</p></div>').join('')+'</div></div><div class="card"><h2>Program feedback</h2>'+(!state.feedback.length?'<p>No feedback yet.</p>':state.feedback.slice(0,12).map(f=>'<p><b>'+safe(f.athlete)+'</b> · '+safe(f.rating)+'<br>'+safe(f.note)+'</p>').join(''))+'</div>';
+}else{
+out='<div class="card"><h2>Athlete profiles</h2>'+Object.entries(state.profiles).map(([id,x])=>'<div class="field"><label>'+safe(id==='you'?'Your name':'Partner name')+'</label><input data-name="'+id+'" value="'+safe(x.name)+'"></div><div class="field"><label>'+safe(x.name)+' — current goal</label><input style="width:100%" data-goal="'+id+'" value="'+safe(x.goal)+'"></div>').join('')+'<p class="hint">Changing your goal does not erase your training history. Detailed goal-specific programming is a future feature.</p></div><div class="card"><h2>Your data</h2><p class="hint">This version does not sync across devices or connect to Apple Health/Oura. Avoid entering sensitive health information in a shared device.</p><button id="export">Export backup</button> <label class="pill">Import backup <input type="file" id="import" accept=".json,application/json" style="display:none"></label></div>';
+}
+$('app').innerHTML=out;
+document.querySelectorAll('[data-page]').forEach(el=>el.onclick=()=>{state.page=el.dataset.page;save();render()});
+document.querySelectorAll('[data-athlete]').forEach(el=>el.onclick=()=>{state.active=el.dataset.athlete;save();render()});
+document.querySelectorAll('[data-setting]').forEach(el=>el.onchange=()=>{p()[el.dataset.setting]=el.dataset.setting==='focus'||el.dataset.setting==='minutes'?Number(el.value):el.value;save();render()});
+document.querySelectorAll('[data-check]').forEach(el=>el.onchange=()=>{let i=Number(el.dataset.check);draft().checks=el.checked?[...new Set([...draft().checks,i])]:draft().checks.filter(x=>x!==i);save()});
+document.querySelectorAll('[data-load]').forEach(el=>el.oninput=()=>{draft().loads[el.dataset.load]=el.value;save()});
+if($('notes'))$('notes').oninput=e=>{draft().notes=e.target.value;save()};
+if($('complete'))$('complete').onclick=()=>{let d=draft(),xs=exercises();state.history.unshift({id:state.active,athlete:p().name,date:new Date().toLocaleDateString(),focus:focusNames[p().focus],location:p().location,minutes:p().minutes,completed:d.checks.length,total:xs.length,notes:d.notes,loads:d.loads});state.drafts[key()]={checks:[],loads:{},notes:''};save();state.page='history';render()};
+if($('submit-feedback'))$('submit-feedback').onclick=()=>{let note=$('feedback').value.trim();state.feedback.unshift({athlete:p().name,rating:$('rating').value,note,date:new Date().toISOString()});save();$('feedback').value='';alert('Feedback saved on this device.')};
+document.querySelectorAll('[data-name]').forEach(el=>el.onchange=()=>{state.profiles[el.dataset.name].name=el.value.trim()||'Athlete';save();render()});
+document.querySelectorAll('[data-goal]').forEach(el=>el.onchange=()=>{state.profiles[el.dataset.goal].goal=el.value.trim()||'General fitness';save();render()});
+if($('export'))$('export').onclick=()=>{let blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='chidester-strong-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+if($('import'))$('import').onchange=async e=>{let file=e.target.files[0];if(!file)return;try{let obj=JSON.parse(await file.text());if(!obj.profiles||!Array.isArray(obj.history))throw Error('Invalid backup');if(confirm('Replace this device\'s current training data with the backup?')){state=obj;save();render()}}catch(err){alert('Could not import backup: '+err.message)}};
+}
+render();
+})();
+</script></body></html>
